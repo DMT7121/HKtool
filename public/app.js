@@ -1,3 +1,6 @@
+// HikSync Pro Dashboard Logic
+const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby5xSxRoALVyYQX6xMxgC7fzktfvLpS5mhXWXAWZZbR6gurj9fVnMJdcajinUYtuETq/exec';
+
 const statLastSync = document.getElementById('stat-last-sync');
 const statTotalSynced = document.getElementById('stat-total-synced');
 const statStatus = document.getElementById('stat-status');
@@ -6,10 +9,37 @@ const syncNowBtn = document.getElementById('sync-now-btn');
 
 let isSyncing = false;
 
+// Determine if we are running in 'Cloud Mode' (Cloudflare) or 'Local Mode' (localhost)
+const isCloudMode = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
+
 async function fetchStatus() {
     try {
+        if (isCloudMode) {
+            // Fetch from GAS instead of local API
+            const response = await fetch(GAS_WEBAPP_URL);
+            const data = await response.json(); // GAS doGet returns rows
+            
+            if (data && data.length > 0) {
+                // Update stats based on latest row
+                const latest = data[data.length - 1];
+                statLastSync.textContent = new Date(latest[2]).toLocaleTimeString();
+                statTotalSynced.textContent = 'Active (Cloud)';
+                statStatus.textContent = 'Cloud Active';
+                statStatus.className = 'status-badge idle';
+                
+                // Map rows to log entries
+                const logs = data.reverse().map(row => ({
+                    timestamp: row[2],
+                    message: `[${row[1]}] ${row[0]} - Chấm công ${row[4]}`
+                }));
+                updateLogs(logs);
+            }
+            return;
+        }
+
         const response = await fetch('/api/status');
         const data = await response.json();
+        // ... rest of the local logic
 
         // Update Stats
         statLastSync.textContent = data.lastSyncTime 
